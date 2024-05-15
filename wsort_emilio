@@ -1,0 +1,93 @@
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+
+// Maximal length of one word and initial capacity of the dynamic array used for storing read words from stdin
+#define MAX_WORD_LEN 100
+#define INITIAL_CAPACITY 100
+
+/* Comparison function for qSort
+ * Takes two void-Pointers as parameters that point to the beginning of two Strings (Array of characters)
+ * Synopsis strcmp: int strcmp(const char *s1, const char *s2);
+ * strcmp returns 0 if two strings are equal, less than 0 if str1 < str2 and greater than 0 if str1  > str 2
+ */
+int compare_words(const void* a, const void* b) {
+	// Convert void* pointers to char* pointers, because strcmp takes char* pointers as parameters
+    const char* str1 = *(const char**)a; // Const because function should not modify the strings being compared
+    const char* str2 = *(const char**)b;
+    
+    return strcmp(str1, str2);
+}
+
+int main() {
+    char** words = malloc(INITIAL_CAPACITY * sizeof(char*)); // Stores all words read from stdin; Stores pointers to char* pointers that point to the beginning of each word
+    int num_words = 0; // Keeps count of the amount of words stored in the words field
+    int capacity = INITIAL_CAPACITY; // Current capacity of words field
+    char buffer[MAX_WORD_LEN + 1]; // Temporary array, used for each row (word) that is being read
+
+    if (words == NULL) {
+        perror("Failed to allocate memory\n");
+        exit(EXIT_FAILURE);
+    }
+    
+	
+	// Read every row (every word) one after the other into the buffer
+    while (fgets(buffer, MAX_WORD_LEN + 1, stdin) != NULL) {
+        size_t len = strlen(buffer);
+        
+        // TODO: LAST WORD DOES NOT HAVE TO HAVE A NEWLINE CHARACTER!!
+        if (len == 1) { // Use len == 1 instead of len == 0 because fgets writes newline character into buffer
+            continue; // Ignore empty lines
+        } else if (len == MAX_WORD_LEN + 1) {
+            fprintf(stderr, "Error: Word longer than %d characters\n", MAX_WORD_LEN);
+            continue; // Ignore too long words
+        }
+
+		// If words array is full, the capacity is doubled and new memory is requested using realloc  
+		// Realloc copies the existing data from words to the new space, the old memory is freed
+		// In this case there is capacity place for new words after copying the existing data (capacity was doubled)
+        if (num_words == capacity) {
+            capacity *= 2;
+            char** new_words = realloc(words, capacity * sizeof(char*));
+            if (new_words == NULL) {
+                perror("Failed to dynamically allocate memory\n");
+                exit(EXIT_FAILURE);
+            }
+            words = new_words;
+        }
+
+        words[num_words] = malloc(len + 1);
+        if (words[num_words] == NULL) {
+            perror("Error: Failed to allocate memory\n");
+            exit(EXIT_FAILURE);
+        }
+        strcpy(words[num_words], buffer);
+        num_words++;
+    }
+    
+    if (ferror(stdin)) {
+        fprintf(stderr, "Error: Failed to read from stdin\n");
+        return 1;
+    }
+	
+	// Sort words Array with num_words Element each of size sizeof(char*), because each element of the 
+	// words array is a pointer to a word (array of character) using the comparison function compare_words (see above)
+    qsort(words, num_words, sizeof(char*), compare_words);
+
+	// Write sorted array to stdout word by word and check for errors (fputs reutrns EOF in that case)
+    for (int i = 0; i < num_words; i++) {
+        if (fputs(words[i], stdout) == EOF || ferror(stdout)) {
+            fprintf(stderr, "Error: Failed to write to stdout\n");
+            return 1;
+        }
+        free(words[i]);
+    }
+	
+	// fflush returns a zero value on success
+    if (fflush(stdout) != 0 || ferror(stdout)) {
+        fprintf(stderr, "Error: Failed to flush stdout\n");
+        return 1;
+    }
+
+    return 0;
+}
